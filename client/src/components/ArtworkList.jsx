@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
-import BackToTopButton from './common/backToTopButton';
+import BackToTopButton from './common/BackToTopButton';
 import SliderNavigation from './common/SliderNavigation';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from './common/LoadingSpinner';

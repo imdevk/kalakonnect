@@ -10,14 +10,50 @@ import LoadingSpinner from './common/LoadingSpinner';
 import ErrorMessage from './common/ErrorMessage';
 
 const artStyles = [
-    'Digital Art', 'Traditional Art', 'Photography', 'Sculpture',
-    'Illustration', 'Concept Art', 'Pixel Art', '3D Art'
+    "Abstract Impressionism", "Anime Style", "Architectural Design", "Baroque and Renaissance Styles", "Cartoon Style", "Cel Shading", "Character Design", "Character Realism", "Cinematic Concept Art", "Conceptual Realism", "Creature Design", "Cyberpunk", "Dark Fantasy", "Digital Illustration", "Dreamlike Landscapes", "Environment 3D Art", "Environment Concept Art", "Expressionism", "FX Animation Styles", "Gothic", "Hand-Painted Textures", "Hard Surface Modeling", "High Fantasy", "High Poly Art", "Hyperrealism", "Impressionism", "Ink and Brushwork Style", "Ink and Line Art", "Isometric Art", "Keyframe Illustration", "Low Poly", "Low-Poly Art", "Manga Style", "Matte Painting", "Minimalism", "Oil Painting Style", "Organic Sculpting", "Photobashing", "Photorealism", "Pixel Art", "Post-Apocalyptic", "Psychological Surrealism", "Realistic 3D Portraits", "Steampunk", "Storybook Illustration", "Stylized 3D Characters", "Surreal Fantasy", "Traditional Comic Art", "VR and AR Art", "Watercolor Techniques", "Weapon and Vehicle Design"
 ];
 
 const softwareOptions = [
-    'Adobe Photoshop', 'Adobe Illustrator', 'Procreate', 'Clip Studio Paint',
-    'Blender', 'Maya', 'ZBrush', 'Krita', 'GIMP', 'Affinity Designer',
-    'Corel Painter', 'Autodesk SketchBook', 'Paint Tool SAI', 'Aseprite', 'Cinema 4D'
+    "3ds Max",
+"Adobe After Effects",
+"Adobe Animate",
+"Adobe Photoshop",
+'Arnold',
+"Autodesk Flame",
+"Autodesk Maya",
+"Blackmagic Fusion",
+"Blender",
+"Cinema 4D",
+"Clip Studio Paint",
+"Cocos2d-x",
+"Construct 3",
+"Corel Painter",
+"CryEngine",
+"Faceware",
+"Godot Engine",
+"Houdini",
+"iPi Soft",
+"KeyShot",
+"Krita",
+"Marvelous Designer",
+"MediBang Paint",
+"Moho (Anime Studio)",
+"MotionBuilder",
+"Nuke",
+"Octane Render",
+"PFTrack",
+"Procreate",
+"RealFlow",
+"Redshift",
+"RizomUV",
+"Substance Painter",
+"Toon Boom Harmony",
+"TVPaint Animation",
+"Unity",
+"Unreal Engine",
+"V-Ray",
+"Xsens MVN",
+"ZBrush"
 ].map(software => ({ value: software, label: software }));
 
 const CreateArtwork = () => {

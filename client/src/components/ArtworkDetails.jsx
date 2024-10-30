@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { FaComment, FaShare, FaHeart, FaLink, FaTrash, FaEye, FaUserPlus, FaFacebook, FaTwitter, FaWhatsapp, FaLinkedin, FaUserCheck } from 'react-icons/fa';
+import { FaComment, FaTimes, FaShare, FaHeart, FaLink, FaTrash, FaEye, FaUserPlus, FaFacebook, FaTwitter, FaWhatsapp, FaLinkedin, FaUserCheck } from 'react-icons/fa';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from './common/LoadingSpinner';
 import NotFound from './NotFound';
+import { getFullImageUrl } from '../utils/api';
 
 const ArtworkDetails = () => {
     const [artwork, setArtwork] = useState(null);
     // const [isLiked, setIsLiked] = useState(false);
+    const [showFullDescription, setShowFullDescription] = useState(false);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isFollowing, setIsFollowing] = useState(false);
@@ -19,11 +21,11 @@ const ArtworkDetails = () => {
     const [isAddingComment, setIsAddingComment] = useState(false);
     const [commentError, setCommentError] = useState('');
     const [showShareDropdown, setShowShareDropdown] = useState(false);
+    const [isCopying, setIsCopying] = useState(false);
     const shareButtonRef = useRef(null);
     const dropdownRef = useRef(null);
 
     const navigate = useNavigate();
-
 
     const fetchArtwork = useCallback(async () => {
         try {
@@ -259,32 +261,109 @@ const ArtworkDetails = () => {
         }
     };
 
+    const handleCopyLink = async () => {
+        try {
+            setIsCopying(true);
+            await navigator.clipboard.writeText(window.location.href);
+        } catch (err) {
+            console.error('Failed to copy link:', err);
+            alert('Failed to copy link');
+        } finally {
+            setTimeout(() => {
+                setIsCopying(false);
+            }, 200);
+        }
+    };
     const LikesModal = ({ isOpen, onClose, likes }) => {
         if (!isOpen) return null;
+
         return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-primary-darker p-4 rounded-lg max-w-md w-full max-h-96 overflow-y-auto text-primary-off-white">
-                    <h3 className="text-lg font-bold mb-2">Liked by:</h3>
-                    {likes.map(like => (
-                        <div key={like._id} className="flex items-center mb-2">
-                            <img src={like.profilePicture} alt={like.name} className="w-8 h-8 rounded-full mr-2" />
-                            <Link to={`/profile/${like.username}`} onClick={onClose} className="hover:underline">
-                                {like.name}
-                            </Link>
-                        </div>
-                    ))}
-                    <button onClick={onClose} className="mt-4 bg-primary-medium text-primary-off-white px-4 py-2 rounded">
-                        Close
-                    </button>
+                <div className="bg-primary-darker p-6 rounded-lg w-[400px] relative" style={{
+                    height: Math.min(
+                        Math.max(160, (likes.length * 48) + 80), // Calculate height based on content
+                        460 // Maximum height
+                    )
+                }}>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-bold text-primary-off-white">Liked by</h3>
+                        <button
+                            onClick={onClose}
+                            className="text-primary-light hover:text-primary-off-white transition-colors duration-200"
+                        >
+                            <FaTimes size={20} />
+                        </button>
+                    </div>
+
+                    <div className="h-[380px] overflow-y-auto custom-scrollbar pr-2">
+                        {likes.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center text-center py-4 text-primary-light">
+                                <FaHeart className="text-2xl mb-2 opacity-50" />
+                                <p className="text-lg font-semibold mb-1">No likes yet</p>
+                            </div>
+                        ) : (
+                            likes.map((like) => (
+                                <div key={like._id} className="flex items-center mb-2">
+                                    <Link
+                                        to={`/profile/${like.username}`}
+                                        onClick={onClose}
+                                        className="flex items-center hover:text-primary-off-white"
+                                    >
+                                        <img
+                                            src={getFullImageUrl(like.profilePicture)}
+                                            alt={like.name}
+                                            className="w-10 h-10 rounded-full mr-2 object-cover"
+                                        />
+                                        <span className="text-primary-light hover:text-primary-off-white">
+                                            {like.name}
+                                        </span>
+                                    </Link>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
         );
     };
 
+    const renderDescription = () => {
+        if (!artwork.description) return null;
+
+        const truncated = truncateText(artwork.description);
+
+        if (typeof truncated === 'string') {
+            return <p className="mb-4 text-primary-off-white">{truncated}</p>;
+        }
+
+        return (
+            <div className="mb-4">
+                <p className="text-primary-off-white">
+                    {showFullDescription ? artwork.description : truncated.truncated}
+                    {truncated.hasMore && (
+                        <button
+                            onClick={() => setShowFullDescription(!showFullDescription)}
+                            className="ml-1 text-sm text-primary-light hover:text-primary-lightest focus:outline-none"
+                        >
+                            {showFullDescription ? 'show less' : 'show more'}
+                        </button>
+                    )}
+                </p>
+            </div>
+        );
+    };
+
+    const truncateText = (text, maxLength = 160) => {
+        if (text.length <= maxLength) return text;
+        return {
+            truncated: text.slice(0, maxLength).trim() + '...',
+            hasMore: true
+        };
+    };
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center min-h-[200px]">
+            <div className="flex justify-center my-8">
                 <LoadingSpinner />
             </div>
         );
@@ -305,272 +384,286 @@ const ArtworkDetails = () => {
 
     return (
         <div className="bg-primary-darkest min-h-screen py-8">
-            <div className="container mx-auto px-4 flex flex-col lg:flex-row justify-center">
-                {/* Left side - Artwork files */}
-                <div className="lg:flex-grow lg:w-[calc(100%-384px)] mb-8 lg:mb-0 lg:mr-4">
-                    {artwork.imageUrls.map((imageUrl, index) => (
-                        <div key={index}
-                            className="mb-4 bg-primary-darker rounded-lg shadow-md overflow-hidden"
-                        >
-                            <div className="relative w-full" style={{ paddingTop: '56.25%' }}>  {/* 56.25% = 9/16 * 100 */}
-                                <div className="absolute inset-0 flex items-center justify-center bg-[#626862]">
-                                    <img
-                                        src={imageUrl}
-                                        alt={`${artwork.title} - Image ${index + 1}`}
-                                        className="max-w-full max-h-full object-contain"
-                                    />
+            <div className="max-w-[1440px] 2xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex flex-col lg:flex-row justify-between gap-6">
+                    {/* Left side - Artwork files */}
+                    <div className="lg:flex-grow lg:w-[calc(100%-424px)]">
+                        {artwork.imageUrls.map((imageUrl, index) => (
+                            <div key={index}
+                                className="mb-6 bg-primary-darker rounded-lg shadow-md overflow-hidden"
+                            >
+                                <div className="relative w-full" style={{ paddingTop: '56.25%' }}>  {/* 56.25% = 9/16 * 100 */}
+                                    <div className="absolute inset-0 flex items-center justify-center bg-primary-darker">
+                                        <img
+                                            src={getFullImageUrl(imageUrl)}
+                                            alt={`${artwork.title} - Image ${index + 1}`}
+                                            className="max-w-full max-h-full object-contain"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
-                    {artwork.videoUrl && (
-                        <div className="mb-4 flex justify-center items-center bg-primary-darker rounded-lg shadow-md overflow-hidden" style={{ minHeight: '50vh', backgroundColor: '#626862' }}>
-                            <video
-                                src={artwork.videoUrl}
-                                controls
-                                className="max-w-full max-h-[80vh] object-contain"
-                            >
-                                Your browser does not support the video tag.
-                            </video>
-                        </div>
-                    )}
-                    {artwork.youtubeUrl && (
-                        <div className="mb-4 flex justify-center items-center bg-primary-darker rounded-lg shadow-md overflow-hidden" style={{ minHeight: '50vh', backgroundColor: '#626862' }}>
-                            <div className="w-full h-0 relative" style={{ paddingBottom: '56.25%' }}>
-                                <iframe
-                                    src={`https://www.youtube.com/embed/${getYouTubeVideoId(artwork.youtubeUrl)}`}
-                                    allow="encrypted-media"
-                                    allowFullScreen
-                                    className="absolute top-0 left-0 w-full h-full"
-                                ></iframe>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Right side - Info card and comments card */}
-                <div className="lg:w-96 flex flex-col gap-4">
-                    {/* Info Card */}
-                    <div className="bg-primary-darker rounded-lg p-6 text-primary-off-white">
-                        {artwork.creator && (
-                            <div className="flex items-center justify-between mb-4">
-                                <Link to={`/profile/${artwork.creator.username}`} className="flex items-center">
-                                    <img
-                                        src={artwork.creator.profilePicture}
-                                        alt={artwork.creator.name || 'Artist'}
-                                        className="w-12 h-12 rounded-full mr-4"
-                                    />
-                                    <div>
-                                        <p className="font-bold text-primary-light hover:underline">
-                                            {artwork.creator.name || 'Unknown Artist'}
-                                        </p>
-                                        {artwork.creator.username && (
-                                            <p className="text-sm text-primary-light">@{artwork.creator.username}</p>
-                                        )}
+                        ))}
+                        {artwork.videoUrl && (
+                            <div className="mb-6 bg-primary-darker rounded-lg shadow-md overflow-hidden">
+                                <div className="relative w-full" style={{ paddingTop: '56.25%' }}>  {/* 16:9 aspect ratio */}
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <video
+                                            src={getFullImageUrl(artwork.videoUrl)}
+                                            controls
+                                            className="absolute inset-0 w-full h-full object-contain"
+                                        >
+                                            Your browser does not support the video tag.
+                                        </video>
                                     </div>
-                                </Link>
-                                {isLoggedIn && user && artwork.creator && artwork.creator._id !== user._id && (
+                                </div>
+                            </div>
+                        )}
+                        {artwork.youtubeUrl && (
+                            <div className="mb-6 bg-primary-darker rounded-lg shadow-md overflow-hidden">
+                                <div className="relative w-full" style={{ paddingTop: '56.25%' }}>  {/* 16:9 aspect ratio */}
+                                    <iframe
+                                        src={`https://www.youtube.com/embed/${getYouTubeVideoId(artwork.youtubeUrl)}`}
+                                        allow="encrypted-media"
+                                        allowFullScreen
+                                        className="absolute inset-0 w-full h-full"
+                                    ></iframe>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right side - Info card and comments card */}
+                    <div className="lg:w-[400px] flex flex-col gap-6">
+                        {/* Info Card */}
+                        <div className="bg-primary-darker rounded-lg p-6 text-primary-off-white">
+                            {artwork.creator && (
+                                <div className="flex items-center justify-between mb-4">
+                                    <Link to={`/profile/${artwork.creator.username}`} className="flex items-center">
+                                        <img
+                                            src={getFullImageUrl(artwork.creator.profilePicture)}
+                                            alt={artwork.creator.name || 'Artist'}
+                                            className="w-12 h-12 rounded-full mr-4"
+                                        />
+                                        <div>
+                                            <p className="font-bold text-primary-light hover:underline">
+                                                {artwork.creator.name || 'Unknown Artist'}
+                                            </p>
+                                            {artwork.creator.username && (
+                                                <p className="text-sm text-primary-light">@{artwork.creator.username}</p>
+                                            )}
+                                        </div>
+                                    </Link>
+                                    {isLoggedIn && user && artwork.creator && artwork.creator._id !== user._id && (
+                                        <button
+                                            onClick={isFollowing ? handleUnfollow : handleFollow}
+                                            className="text-primary-light hover:text-primary-lightest transition-colors duration-200"
+                                            title={isFollowing ? "Unfollow" : "Follow"}
+                                        >
+                                            {isFollowing ? (
+                                                <FaUserCheck size={20} className="text-green-500 hover:text-primary-light" />
+                                            ) : (
+                                                <FaUserPlus size={20} />
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            <h1 className="text-2xl font-bold mb-2">{artwork.title}</h1>
+                            {renderDescription()}
+
+                            <div className="flex items-center mb-4">
+                                <FaEye className="mr-2 text-primary-light" />
+                                <span className="text-sm text-primary-light">{artwork.views || 0} views</span>
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center">
+                                    <button onClick={handleLike} className="flex items-center text-primary-light hover:text-primary-lightest mr-2">
+                                        <FaHeart className={`${artwork.likes.some(like => like._id === user?._id) ? 'text-red-500' : ''}`} />
+                                    </button>
                                     <button
-                                        onClick={isFollowing ? handleUnfollow : handleFollow}
-                                        className="text-primary-light hover:text-primary-lightest transition-colors duration-200"
-                                        title={isFollowing ? "Unfollow" : "Follow"}
+                                        onClick={() => setShowLikes(true)}
+                                        className="text-primary-light hover:text-primary-lightest"
                                     >
-                                        {isFollowing ? (
-                                            <FaUserCheck size={20} className="text-green-500 hover:text-primary-light" />
-                                        ) : (
-                                            <FaUserPlus size={20} />
-                                        )}
+                                        {artwork.likes.length}
+                                    </button>
+                                </div>
+                                <button className="flex items-center text-primary-light hover:text-primary-lightest">
+                                    <FaComment className="mr-2" />
+                                    {artwork.comments.length}
+                                </button>
+                                <div className="relative" ref={shareButtonRef}>
+                                    <button
+                                        className="flex items-center text-primary-light hover:text-primary-lightest"
+                                        onClick={() => setShowShareDropdown(!showShareDropdown)}
+                                    >
+                                        <FaShare className="mr-2" />
+                                    </button>
+                                    {showShareDropdown && (
+                                        <div
+                                            ref={dropdownRef}
+                                            className="absolute left-1/2 transform -translate-x-1/2 mt-2 bg-primary-dark rounded-lg shadow-lg z-10 p-2"
+                                            style={{ width: 'max-content' }}
+                                        >
+                                            <div className="flex space-x-2">
+                                                <button
+                                                    className="p-2 text-primary-off-white hover:bg-primary-medium rounded-full"
+                                                    onClick={() => handleShare('facebook')}
+                                                    title="Share on Facebook"
+                                                >
+                                                    <FaFacebook />
+                                                </button>
+                                                <button
+                                                    className="p-2 text-primary-off-white hover:bg-primary-medium rounded-full"
+                                                    onClick={() => handleShare('twitter')}
+                                                    title="Share on X (Twitter)"
+                                                >
+                                                    <FaTwitter />
+                                                </button>
+                                                <button
+                                                    className="p-2 text-primary-off-white hover:bg-primary-medium rounded-full"
+                                                    onClick={() => handleShare('whatsapp')}
+                                                    title="Share on WhatsApp"
+                                                >
+                                                    <FaWhatsapp />
+                                                </button>
+                                                <button
+                                                    className="p-2 text-primary-off-white hover:bg-primary-medium rounded-full"
+                                                    onClick={() => handleShare('linkedin')}
+                                                    title="Share on LinkedIn"
+                                                >
+                                                    <FaLinkedin />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={handleCopyLink}
+                                    className={`flex items-center transition-colors duration-200 
+        ${isCopying
+                                            ? 'text-primary-lightest'
+                                            : 'text-primary-light hover:text-primary-lightest'
+                                        }`}
+                                    title="Copy link"
+                                >
+                                    <FaLink className="mr-2" />
+                                </button>
+                                {isLoggedIn && user && artwork.creator && artwork.creator._id === user._id && (
+                                    <button
+                                        onClick={handleDelete}
+                                        className="flex items-center text-primary-light hover:text-red-500"
+                                    >
+                                        <FaTrash className="mr-2" />
                                     </button>
                                 )}
                             </div>
-                        )}
-
-                        <h1 className="text-2xl font-bold mb-2">{artwork.title}</h1>
-                        <p className="mb-4">{artwork.description}</p>
-
-                        <div className="flex items-center mb-4">
-                            <FaEye className="mr-2 text-primary-light" />
-                            <span className="text-sm text-primary-light">{artwork.views || 0} views</span>
                         </div>
 
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center">
-                                <button onClick={handleLike} className="flex items-center text-primary-light hover:text-primary-lightest mr-2">
-                                    <FaHeart className={`${artwork.likes.some(like => like._id === user?._id) ? 'text-red-500' : ''}`} />
-                                </button>
-                                <button
-                                    onClick={() => setShowLikes(true)}
-                                    className="text-primary-light hover:text-primary-lightest"
-                                >
-                                    {artwork.likes.length}
-                                </button>
+                        {/* Art Style, Tags, and Software Card */}
+                        <div className="bg-primary-darker rounded-lg p-6 text-primary-off-white space-y-3">
+                            {/* Art Style */}
+                            <div>
+                                <p className="text-sm font-semibold text-primary-light mb-1.5">Art Style</p>
+                                <div className="bg-primary-medium text-primary-off-white px-3 py-1.5 rounded-md text-sm inline-block">
+                                    {artwork.artStyle}
+                                </div>
                             </div>
-                            <button className="flex items-center text-primary-light hover:text-primary-lightest">
-                                <FaComment className="mr-2" />
-                                {artwork.comments.length}
-                            </button>
-                            <div className="relative" ref={shareButtonRef}>
-                                <button
-                                    className="flex items-center text-primary-light hover:text-primary-lightest"
-                                    onClick={() => setShowShareDropdown(!showShareDropdown)}
-                                >
-                                    <FaShare className="mr-2" />
-                                </button>
-                                {showShareDropdown && (
-                                    <div
-                                        ref={dropdownRef}
-                                        className="absolute left-1/2 transform -translate-x-1/2 mt-2 bg-primary-dark rounded-lg shadow-lg z-10 p-2"
-                                        style={{ width: 'max-content' }}
-                                    >
-                                        <div className="flex space-x-2">
-                                            <button
-                                                className="p-2 text-primary-off-white hover:bg-primary-medium rounded-full"
-                                                onClick={() => handleShare('facebook')}
-                                                title="Share on Facebook"
-                                            >
-                                                <FaFacebook />
-                                            </button>
-                                            <button
-                                                className="p-2 text-primary-off-white hover:bg-primary-medium rounded-full"
-                                                onClick={() => handleShare('twitter')}
-                                                title="Share on X (Twitter)"
-                                            >
-                                                <FaTwitter />
-                                            </button>
-                                            <button
-                                                className="p-2 text-primary-off-white hover:bg-primary-medium rounded-full"
-                                                onClick={() => handleShare('whatsapp')}
-                                                title="Share on WhatsApp"
-                                            >
-                                                <FaWhatsapp />
-                                            </button>
-                                            <button
-                                                className="p-2 text-primary-off-white hover:bg-primary-medium rounded-full"
-                                                onClick={() => handleShare('linkedin')}
-                                                title="Share on LinkedIn"
-                                            >
-                                                <FaLinkedin />
-                                            </button>
-                                        </div>
+
+                            {/* Software Section */}
+                            {artwork.software && artwork.software.length > 0 && (
+                                <div>
+                                    <p className="text-sm font-semibold text-primary-light mb-1.5">Software Used</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {artwork.software.map((sw, index) => (
+                                            <span key={index} className="bg-primary-medium text-primary-off-white px-3 py-1.5 rounded-md text-sm">
+                                                {sw}
+                                            </span>
+                                        ))}
                                     </div>
-                                )}
-                            </div>
-                            <button className="flex items-center text-primary-light hover:text-primary-lightest">
-                                <FaLink className="mr-2" />
-                            </button>
-                            {isLoggedIn && user && artwork.creator && artwork.creator._id === user._id && (
-                                <button
-                                    onClick={handleDelete}
-                                    className="flex items-center text-primary-light hover:text-red-500"
-                                >
-                                    <FaTrash className="mr-2" />
-                                </button>
+                                </div>
+                            )}
+
+                            {/* Tags Section */}
+                            {artwork.tags && artwork.tags.length > 0 && (
+                                <div>
+                                    <p className="text-sm font-semibold text-primary-light mb-1.5">Tags</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {artwork.tags.map((tag, index) => (
+                                            <span key={index} className="bg-primary-medium text-primary-off-white px-3 py-1.5 rounded-full text-sm">
+                                                #{tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
                             )}
                         </div>
-                    </div>
 
-                    {/* Art Style, Tags, and Software Card */}
-                    <div className="bg-primary-darker rounded-lg p-6 text-primary-off-white space-y-3">
-                        {/* Art Style */}
-                        <div>
-                            <p className="text-sm font-semibold text-primary-light mb-1.5">Art Style</p>
-                            <div className="bg-primary-medium text-primary-off-white px-3 py-1.5 rounded-md text-sm inline-block">
-                                {artwork.artStyle}
-                            </div>
+                        {/* Comments Section */}
+                        <div className="bg-primary-darker rounded-lg p-6 pb-0 text-primary-off-white">
+                            {artwork.comments.length > 0 && (
+                                <>
+                                    <h3 className="text-xl font-bold mb-4 text-primary-off-white">Comments</h3>
+                                    <div className="max-h-[220px] overflow-y-auto mb-1 custom-scrollbar">
+                                        {artwork.comments.map((comment) => (
+                                            <div key={comment._id} className="bg-primary-dark p-4 rounded-lg shadow mb-4 text-primary-off-white">
+                                                <p className="mb-2">{comment.content}</p>
+                                                <div className="flex items-center justify-between text-sm text-primary-light">
+                                                    <span>By {comment.user?.name || 'Unknown User'}</span>
+                                                    {isLoggedIn && user && (
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                onClick={() => comment.likes?.includes(user._id) ? handleUnlikeComment(comment._id) : handleLikeComment(comment._id)}
+                                                                className="flex items-center gap-1"
+                                                            >
+                                                                <FaHeart
+                                                                    className={comment.likes?.includes(user._id) ? 'text-red-500' : 'text-primary-light hover:text-primary-lightest'}
+                                                                />
+                                                                <span>{comment.likes?.length || 0}</span>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Comment Form or Login Message */}
+                            {isLoggedIn ? (
+                                <form onSubmit={handleAddComment}>
+                                    <textarea
+                                        value={newComment}
+                                        onChange={(e) => setNewComment(e.target.value)}
+                                        className="w-full p-2 border rounded-lg bg-primary-dark text-primary-off-white resize-none"
+                                        placeholder="Add a comment..."
+                                        rows="3"
+                                        required
+                                    ></textarea>
+                                    {commentError && <p className="text-red-500 mt-2">{commentError}</p>}
+                                    <button
+                                        type="submit"
+                                        className="mt-2 mb-6 bg-primary-medium text-primary-off-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:bg-primary-darker"
+                                        disabled={isAddingComment}
+                                    >
+                                        {isAddingComment ? 'Adding Comment...' : 'Add Comment'}
+                                    </button>
+                                </form>
+                            ) : (
+                                <div className="text-center py-4 text-primary-light bg-primary-dark rounded-lg mb-6">
+                                    Please <Link to="/login" className="text-blue-400 hover:text-blue-300">login</Link> to add a comment
+                                </div>
+                            )}
                         </div>
 
-                        {/* Software Section */}
-                        {artwork.software && artwork.software.length > 0 && (
-                            <div>
-                                <p className="text-sm font-semibold text-primary-light mb-1.5">Software Used</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {artwork.software.map((sw, index) => (
-                                        <span key={index} className="bg-primary-medium text-primary-off-white px-3 py-1.5 rounded-md text-sm">
-                                            {sw}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Tags Section */}
-                        {artwork.tags && artwork.tags.length > 0 && (
-                            <div>
-                                <p className="text-sm font-semibold text-primary-light mb-1.5">Tags</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {artwork.tags.map((tag, index) => (
-                                        <span key={index} className="bg-primary-medium text-primary-off-white px-3 py-1.5 rounded-full text-sm">
-                                            #{tag}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
-
-                    {/* Comments Section */}
-                    <div className="bg-primary-darker rounded-lg p-6 pb-0 text-primary-off-white">
-                        {artwork.comments.length > 0 && (
-                            <>
-                                <h3 className="text-xl font-bold mb-4 text-primary-off-white">Comments</h3>
-                                <div className="max-h-[220px] overflow-y-auto mb-1 custom-scrollbar">
-                                    {artwork.comments.map((comment) => (
-                                        <div key={comment._id} className="bg-primary-dark p-4 rounded-lg shadow mb-4 text-primary-off-white">
-                                            <p className="mb-2">{comment.content}</p>
-                                            <div className="flex items-center justify-between text-sm text-primary-light">
-                                                <span>By {comment.user?.name || 'Unknown User'}</span>
-                                                {isLoggedIn && user && (
-                                                    <div className="flex items-center gap-1">
-                                                        <button
-                                                            onClick={() => comment.likes?.includes(user._id) ? handleUnlikeComment(comment._id) : handleLikeComment(comment._id)}
-                                                            className="flex items-center gap-1"
-                                                        >
-                                                            <FaHeart
-                                                                className={comment.likes?.includes(user._id) ? 'text-red-500' : 'text-primary-light hover:text-primary-lightest'}
-                                                            />
-                                                            <span>{comment.likes?.length || 0}</span>
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-
-                        {/* Comment Form or Login Message */}
-                        {isLoggedIn ? (
-                            <form onSubmit={handleAddComment}>
-                                <textarea
-                                    value={newComment}
-                                    onChange={(e) => setNewComment(e.target.value)}
-                                    className="w-full p-2 border rounded-lg bg-primary-dark text-primary-off-white resize-none"
-                                    placeholder="Add a comment..."
-                                    rows="3"
-                                    required
-                                ></textarea>
-                                {commentError && <p className="text-red-500 mt-2">{commentError}</p>}
-                                <button
-                                    type="submit"
-                                    className="mt-2 mb-6 bg-primary-medium text-primary-off-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:bg-primary-darker"
-                                    disabled={isAddingComment}
-                                >
-                                    {isAddingComment ? 'Adding Comment...' : 'Add Comment'}
-                                </button>
-                            </form>
-                        ) : (
-                            <div className="text-center py-4 text-primary-light bg-primary-dark rounded-lg mb-6">
-                                Please <Link to="/login" className="text-blue-400 hover:text-blue-300">login</Link> to add a comment
-                            </div>
-                        )}
-                    </div>
-
                 </div>
+
+
+                <LikesModal isOpen={showLikes} onClose={() => setShowLikes(false)} likes={artwork.likes} />
             </div>
-
-
-            <LikesModal isOpen={showLikes} onClose={() => setShowLikes(false)} likes={artwork.likes} />
         </div>
     );
 };

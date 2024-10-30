@@ -32,9 +32,9 @@ const App = () => {
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
       <AuthProvider>
         <Router>
-          <div className="min-h-screen bg-gray-100">
+          <div className="min-h-screen bg-primary-darkest">
             <Navigation />
-            <main className='pt-16 bg-primary-darkest'>
+            <main className='pt-16'>
               <Routes>
                 <Route path="/" element={<ArtworkList />} />
                 <Route path="/login" element={<Login />} />

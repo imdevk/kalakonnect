@@ -91,7 +91,7 @@ const Signup = () => {
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center min-h-[200px]">
+            <div className="flex justify-center my-8">
                 <LoadingSpinner />
             </div>
         );

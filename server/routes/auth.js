@@ -8,10 +8,8 @@ router.post('/signup', signup);
 router.post('/login', login);
 router.post('/google', async (req, res, next) => {
     try {
-        console.log('Received Google login request:', req.body);
         await googleLogin(req, res);
     } catch (error) {
-        console.error('Error in Google login route:', error);
         next(error);
     }
 });

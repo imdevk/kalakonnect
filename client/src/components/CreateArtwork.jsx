@@ -48,7 +48,7 @@ const CreateArtwork = () => {
     const artStyleOptions = useMemo(() => artStyles.map(style => ({ value: style, label: style })), []);
 
     const mediaTabs = useMemo(() => [
-        { id: 'image', icon: FaImage, label: 'Image *' },
+        { id: 'image', icon: FaImage, label: 'Image' },
         { id: 'video', icon: FaVideo, label: 'Video' },
         { id: 'youtube', icon: FaYoutube, label: 'YouTube' }
     ], []);
@@ -154,7 +154,7 @@ const CreateArtwork = () => {
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center min-h-[200px]">
+            <div className="flex justify-center my-8">
                 <LoadingSpinner />
             </div>
         );
@@ -162,12 +162,21 @@ const CreateArtwork = () => {
 
     if (!user.isVerified) {
         return (
-            <div className="container mx-auto px-4 py-8">
-                <h2 className="text-2xl font-bold mb-4">Account Not Verified</h2>
-                <p className="mb-4">Your account needs to be verified before you can create artworks.</p>
-                <Link to="/verify-email" className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
-                    Verify Your Email
-                </Link>
+            <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-primary-darkest">
+                <div className="bg-primary-darker px-8 py-6 rounded-lg shadow-xl w-full max-w-md">
+                    <h2 className="text-3xl font-bold text-primary-lightest mb-6">Account Not Verified</h2>
+                    <p className="text-primary-light mb-8">
+                        Your account needs to be verified before you can create artworks. Please verify your email to unlock all features.
+                    </p>
+                    <div className="flex justify-center">
+                        <Link
+                            to="/verify-email"
+                            className="w-full bg-primary-medium text-primary-off-white px-4 py-3 rounded-lg hover:bg-primary-dark transition duration-300 text-center"
+                        >
+                            Verify Your Email
+                        </Link>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -428,7 +437,7 @@ const CreateArtwork = () => {
                             <div className="mt-4 flex flex-wrap gap-2">
                                 {images.map((image) => (
                                     <div key={image.id} className="relative">
-                                        <img src={image.preview} alt="Upload preview" className="w-24 h-24 object-cover rounded-lg" />
+                                        <img src={image.preview} alt="Upload preview" className="w-20 h-20 sm:h-24 sm:w-24 object-cover rounded-lg" />
                                         <button
                                             type="button"
                                             onClick={() => removeMedia('image', image.id)}
@@ -440,7 +449,7 @@ const CreateArtwork = () => {
                                 ))}
                                 {video && (
                                     <div className="relative">
-                                        <div className="w-24 h-24 bg-primary-dark flex items-center justify-center rounded-lg">
+                                        <div className="w-20 h-20 sm:h-24 sm:w-24 bg-primary-dark flex items-center justify-center rounded-lg">
                                             <FaVideo className="text-4xl text-primary-light" />
                                         </div>
                                         <button
@@ -454,7 +463,7 @@ const CreateArtwork = () => {
                                 )}
                                 {youtubeUrl && (
                                     <div className="relative">
-                                        <div className="w-24 h-24 bg-primary-dark flex items-center justify-center rounded-lg">
+                                        <div className="w-20 h-20 sm:h-24 sm:w-24 bg-primary-dark flex items-center justify-center rounded-lg">
                                             <FaYoutube className="text-4xl text-red-500" />
                                         </div>
                                         <button

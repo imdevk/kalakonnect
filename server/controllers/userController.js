@@ -1,7 +1,9 @@
 const User = require('../models/User');
-const cloudinary = require('../config/cloudinary');
 const Joi = require('joi');
 const { createNotification } = require('./notificationController');
+const { processProfilePicture, processCoverImage } = require('../utils/fileProcessing');
+const fs = require('fs').promises;
+const path = require('path');
 
 const updateProfileSchema = Joi.object({
     name: Joi.string().min(2).max(50),
@@ -22,27 +24,48 @@ const updateProfileSchema = Joi.object({
 exports.updateProfileImage = async (req, res, next) => {
     try {
         const userId = req.userId;
+        const user = await User.findById(userId);
         let updateData = {};
 
         if (req.files) {
             if (req.files.profilePicture) {
-                const result = await cloudinary.uploader.upload(req.files.profilePicture[0].path, {
-                    width: 400,
-                    height: 400,
-                    crop: "fill",
-                    gravity: "face"
-                });
-                updateData.profilePicture = result.secure_url;
+                const profilePictureUrl = await processProfilePicture(
+                    req.files.profilePicture[0],
+                    user.username
+                );
+
+                // Delete old profile picture if it exists and isn't the default
+                if (user.profilePicture && !user.profilePicture.includes('default-profile.jpg')) {
+                    const oldFilePath = path.join(__dirname, '..', 'public', user.profilePicture);
+                    try {
+                        await fs.access(oldFilePath);
+                        await fs.unlink(oldFilePath);
+                    } catch (error) {
+                        console.log('Old profile picture not found or could not be deleted');
+                    }
+                }
+
+                updateData.profilePicture = profilePictureUrl;
             }
+
             if (req.files.coverImage) {
-                const result = await cloudinary.uploader.upload(req.files.coverImage[0].path, {
-                    folder: "cover_images",
-                    transformation: [
-                        { width: 1200, height: 400, crop: "fill" },
-                        { quality: "auto:best", fetch_format: "auto" }
-                    ]
-                });
-                updateData.coverImage = result.secure_url;
+                const coverImageUrl = await processCoverImage(
+                    req.files.coverImage[0],
+                    user.username
+                );
+
+                // Delete old cover image if it exists and isn't the default
+                if (user.coverImage && !user.coverImage.includes('default-cover.jpg')) {
+                    const oldFilePath = path.join(__dirname, '..', 'public', user.coverImage);
+                    try {
+                        await fs.access(oldFilePath);
+                        await fs.unlink(oldFilePath);
+                    } catch (error) {
+                        console.log('Old cover image not found or could not be deleted');
+                    }
+                }
+
+                updateData.coverImage = coverImageUrl;
             }
         }
 
@@ -52,7 +75,8 @@ exports.updateProfileImage = async (req, res, next) => {
             throw err;
         }
 
-        const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).select('-password');
+        const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true })
+            .select('-password');
 
         if (!updatedUser) {
             const err = new Error('User not found');
@@ -69,6 +93,16 @@ exports.updateProfileImage = async (req, res, next) => {
         });
     } catch (error) {
         next(error);
+    }
+};
+
+// Helper function to safely delete a file
+const safeDeleteFile = async (filePath) => {
+    try {
+        await fs.access(filePath);
+        await fs.unlink(filePath);
+    } catch (error) {
+        console.log(`File ${filePath} does not exist or could not be deleted`);
     }
 };
 

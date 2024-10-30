@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -10,6 +10,12 @@ const VerifyUser = () => {
     const [success, setSuccess] = useState(false);
     const navigate = useNavigate();
     const { user, updateUser } = useAuth();
+
+    useEffect(() => {
+        if (user?.isVerified) {
+            navigate('/create');
+        }
+    }, [user, navigate]);
 
     const handleVerification = async () => {
         setIsLoading(true);
@@ -26,7 +32,7 @@ const VerifyUser = () => {
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center min-h-[200px]">
+            <div className="flex justify-center my-8">
                 <LoadingSpinner />
             </div>
         );
@@ -37,23 +43,35 @@ const VerifyUser = () => {
         return null;
     }
 
+    if (user.isVerified) {
+        navigate('/create');
+        return null;
+    }
+
     return (
-        <div className="container mx-auto px-4 py-8">
-            <h1 className="text-2xl font-bold mb-4">Verify Your Email</h1>
-            {!success ? (
-                <>
-                    <p className="mb-4">Click the button below to receive a verification email.</p>
-                    <button
-                        onClick={handleVerification}
-                        disabled={isLoading}
-                        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:bg-blue-300"
-                    >
-                    </button>
-                </>
-            ) : (
-                <p className="text-green-600">Verification email sent! Please check your inbox and follow the instructions.</p>
-            )}
-            {error && <p className="text-red-500 mt-4">{error}</p>}
+        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-primary-darkest">
+            <div className="bg-primary-darker px-8 py-6 rounded-lg shadow-xl max-w-md w-full">
+                <h1 className="text-3xl font-bold text-primary-lightest mb-6">Verify Your Email</h1>
+                {!success ? (
+                    <>
+                        <p className="text-primary-light mb-6">
+                            Click the button below to receive a verification email.
+                        </p>
+                        <button
+                            onClick={handleVerification}
+                            disabled={isLoading}
+                            className="w-full bg-primary-medium text-primary-off-white px-4 py-2 rounded-md hover:bg-primary-dark transition duration-300"
+                        >
+                            {isLoading ? 'Sending...' : 'Send Verification Email'}
+                        </button>
+                    </>
+                ) : (
+                    <p className="text-primary-light">
+                        Verification email sent! Please check your inbox and follow the instructions.
+                    </p>
+                )}
+                {error && <p className="text-red-500 mb-4">{error}</p>}
+            </div>
         </div>
     );
 };

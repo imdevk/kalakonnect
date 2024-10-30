@@ -14,7 +14,7 @@ const ImageCropper = ({ src, onCropComplete, onCancel, aspect = 1, shape = 'rect
 
     const onImageLoad = useCallback((image) => {
         const { width, height } = image.currentTarget;
-        const cropWidth = Math.min(200, width);
+        const cropWidth = Math.min(100, width);
         const cropHeight = cropWidth / aspect;
         const x = (width - cropWidth) / 2;
         const y = (height - cropHeight) / 2;
@@ -67,8 +67,17 @@ const ImageCropper = ({ src, onCropComplete, onCancel, aspect = 1, shape = 'rect
                 setIsSaving(true); // Add this line
                 const image = document.getElementById('cropImage');
                 const croppedImageBlob = await getCroppedImg(image, completedCrop);
-                const croppedImageFile = new File([croppedImageBlob], 'cropped.jpg', { type: 'image/jpeg' });
+                const croppedImageFile = new File(
+                    [croppedImageBlob],
+                    'cropped.jpg',
+                    {
+                        type: 'image/jpeg',
+                        lastModified: new Date().getTime()
+                    }
+                );
                 await onCropComplete(croppedImageFile);
+            } catch (error) {
+                console.error('Error during crop:', error);
             } finally {
                 setIsSaving(false); // Add this line
             }

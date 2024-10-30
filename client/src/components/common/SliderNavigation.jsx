@@ -8,9 +8,9 @@ const SliderNavigation = ({ activeTab, setActiveTab, tabs }) => {
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
-                        className={`px-6 py-3 text-sm font-medium ${activeTab === tab.id
-                                ? 'bg-primary-medium text-primary-off-white'
-                                : 'text-primary-light hover:bg-primary-dark hover:text-primary-off-white'
+                        className={`px-4 sm:px-6 py-3 text-sm font-medium ${activeTab === tab.id
+                            ? 'bg-primary-medium text-primary-off-white'
+                            : 'text-primary-light hover:bg-primary-dark hover:text-primary-off-white'
                             } rounded-full transition-colors duration-200 flex items-center`}
                         onClick={() => setActiveTab(tab.id)}
                     >

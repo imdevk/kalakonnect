@@ -1,8 +1,12 @@
 const Artwork = require('../models/Artwork');
-const cloudinary = require('../config/cloudinary');
 const Joi = require('joi');
 const User = require('../models/User');
 const { createNotification } = require('./notificationController');
+const {
+    processArtworkImage,
+    processArtworkThumbnail,
+    saveVideo
+} = require('../utils/fileProcessing');
 
 const artworkSchema = Joi.object({
     title: Joi.string().required().min(1).max(100),
@@ -19,14 +23,12 @@ const commentSchema = Joi.object({
 
 exports.createArtwork = async (req, res, next) => {
     try {
-
         const user = await User.findById(req.userId);
         if (!user.isVerified) {
             const err = new Error('Your account is not verified. Please verify your email before posting.');
             err.status = 403;
             throw err;
         }
-
 
         const { title, description, artStyle, software, tags, youtubeUrl } = req.body;
 
@@ -49,81 +51,46 @@ exports.createArtwork = async (req, res, next) => {
         const videoFile = req.files['video'] ? req.files['video'][0] : null;
         const thumbnailFile = req.files['thumbnail'] ? req.files['thumbnail'][0] : null;
 
-        // const files = req.files;
-
-        // if (!files || files.length === 0) {
-        //     const err = new Error('No files provided');
-        //     err.status = 400;
-        //     throw err;
-        // }
-
-        // const imageFiles = files.filter(file => file.mimetype.startsWith('image/'));
-        // const videoFile = files.find(file => file.mimetype.startsWith('video/'));
-
         if (!imageFiles || imageFiles.length === 0) {
             const err = new Error('At least one image is required');
             err.status = 400;
             throw err;
         }
 
-        let thumbnailResult;
-        if (thumbnailFile) {
-            thumbnailResult = await cloudinary.uploader.upload(thumbnailFile.path, {
-                folder: "artwork_thumbnails",
-                transformation: [
-                    { width: 600, height: 600, crop: "fill" },
-                    { quality: "auto:good", fetch_format: "auto" }
-                ]
-            });
-        } else {
-            // Use the first image as thumbnail if no specific thumbnail is provided
-            thumbnailResult = await cloudinary.uploader.upload(imageFiles[0].path, {
-                folder: "artwork_thumbnails",
-                transformation: [
-                    { width: 600, height: 600, crop: "fill" },
-                    { quality: "auto:good", fetch_format: "auto" }
-                ]
-            });
-        }
-
+        // Process all files
         const uploadPromises = imageFiles.map(file =>
-            cloudinary.uploader.upload(file.path, {
-                folder: "artwork_images",
-                transformation: [
-                    { quality: "auto:good", fetch_format: "auto" }
-                ]
-            }));
+            processArtworkImage(file, user.username)
+        );
 
-        let videoUploadResult;
-
-        if (videoFile) {
-            videoUploadResult = await cloudinary.uploader.upload(videoFile.path, {
-                resource_type: "video",
-                folder: "artwork_videos",
-                eager: [
-                    { width: 300, height: 300, crop: "pad" },
-                    { width: 160, height: 100, crop: "crop", gravity: "south" }
-                ],
-                eager_async: true
-            });
+        let thumbnailUrl;
+        if (thumbnailFile) {
+            thumbnailUrl = await processArtworkThumbnail(thumbnailFile, user.username);
+        } else {
+            // Use first image as thumbnail if none provided
+            thumbnailUrl = await processArtworkThumbnail(imageFiles[0], user.username);
         }
 
-        const uploadResults = await Promise.all(uploadPromises);
+        let videoUrl;
+        if (videoFile) {
+            videoUrl = await saveVideo(videoFile, user.username);
+        }
+
+        const imageUrls = await Promise.all(uploadPromises);
 
         const newArtwork = new Artwork({
             title,
             description,
-            thumbnailUrl: thumbnailResult.secure_url,
-            imageUrls: uploadResults.map(result => result.secure_url),
-            videoUrl: videoUploadResult ? videoUploadResult.secure_url : null,
+            thumbnailUrl,
+            imageUrls,
+            videoUrl,
             youtubeUrl,
             artStyle,
             software: JSON.parse(software),
             tags: JSON.parse(tags),
             creator: req.userId
         });
-        await newArtwork.save();
 
+        await newArtwork.save();
         await User.findByIdAndUpdate(req.userId, { $push: { artworks: newArtwork._id } });
 
         res.status(201).json(newArtwork);
@@ -321,6 +288,7 @@ exports.unlikeArtwork = async (req, res, next) => {
 exports.deleteArtwork = async (req, res, next) => {
     try {
         const artwork = await Artwork.findById(req.params.id);
+        const user = await User.findById(req.userId);
 
         if (!artwork) {
             const err = new Error('Artwork not found');
@@ -334,14 +302,21 @@ exports.deleteArtwork = async (req, res, next) => {
             throw err;
         }
 
+        // Delete all associated files
+        const filesToDelete = [
+            ...artwork.imageUrls.map(url => path.join('public', url)),
+            path.join('public', artwork.thumbnailUrl)
+        ];
 
-        for (const imageUrl of artwork.imageUrls) {
-            const publicId = imageUrl.split('/').pop().split('.')[0];
-            await cloudinary.uploader.destroy(publicId);
+        if (artwork.videoUrl) {
+            filesToDelete.push(path.join('public', artwork.videoUrl));
         }
 
-        await Artwork.findByIdAndDelete(req.params.id);
+        await Promise.all(filesToDelete.map(file =>
+            fs.unlink(file).catch(() => { }) // Ignore errors if file doesn't exist
+        ));
 
+        await Artwork.findByIdAndDelete(req.params.id);
         await User.findByIdAndUpdate(req.userId, { $pull: { artworks: req.params.id } });
 
         res.json({ message: 'Artwork deleted successfully' });
@@ -481,7 +456,7 @@ exports.searchArtworks = async (req, res, next) => {
                 { software: { $in: [new RegExp(q, 'i')] } },
                 { tags: { $in: [new RegExp(q, 'i')] } }
             ]
-        }).populate('creator', 'name username');
+        }).populate('creator', 'name username profilePicture');
 
         // Perform a separate query for creators
         const creators = await User.find({
@@ -489,12 +464,12 @@ exports.searchArtworks = async (req, res, next) => {
                 { name: { $regex: q, $options: 'i' } },
                 { username: { $regex: q, $options: 'i' } }
             ]
-        }, '_id name username');
+        }, '_id name username profilePicture');
 
         // Find artworks by the matched creators
         const artworksByCreator = await Artwork.find({
             creator: { $in: creators.map(c => c._id) }
-        }).populate('creator', 'name username');
+        }).populate('creator', 'name username profilePicture');
 
         // Combine and deduplicate results
         const combinedResults = [...artworks, ...artworksByCreator];

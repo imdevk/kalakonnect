@@ -5,6 +5,7 @@ import BackToTopButton from './common/BackToTopButton';
 import SliderNavigation from './common/SliderNavigation';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from './common/LoadingSpinner';
+import { getFullImageUrl } from '../utils/api';
 
 const ArtworkList = () => {
     const [artworks, setArtworks] = useState([]);
@@ -93,10 +94,10 @@ const ArtworkList = () => {
     }
 
     return (
-        <div className="bg-primary-darkest min-h-screen py-5">
+        <div className="bg-primary-darkest min-h-screen py-2 md:py-5">
             <div className="max-w-[1440px] 2xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
                 {isLoggedIn && (
-                    <div className="flex justify-center mb-8">
+                    <div className="flex justify-center mb-5 md:mb-8">
                         <SliderNavigation
                             activeTab={activeTab}
                             setActiveTab={handleTabChange}
@@ -116,9 +117,9 @@ const ArtworkList = () => {
                             >
                                 <div className="relative pb-[100%] overflow-hidden rounded-sm group">
                                     {artwork.thumbnailUrl ? (
-                                        <img src={artwork.thumbnailUrl} alt={artwork.title} className="absolute top-0 left-0 w-full h-full object-cover" />
+                                        <img src={getFullImageUrl(artwork.thumbnailUrl)} alt={artwork.title} className="absolute top-0 left-0 w-full h-full object-cover" />
                                     ) : artwork.imageUrls && artwork.imageUrls.length > 0 ? (
-                                        <img src={artwork.imageUrls[0]} alt={artwork.title} className="absolute top-0 left-0 w-full h-full object-cover" />
+                                        <img src={getFullImageUrl(artwork.imageUrls[0])} alt={artwork.title} className="absolute top-0 left-0 w-full h-full object-cover" />
                                     ) : (
                                         <div className="absolute top-0 left-0 w-full h-full bg-primary-darker flex items-center justify-center text-primary-light">No Image</div>
                                     )}
@@ -127,7 +128,7 @@ const ArtworkList = () => {
                                         <div className="flex items-center">
                                             {artwork.creator && artwork.creator.profilePicture && (
                                                 <img
-                                                    src={artwork.creator.profilePicture}
+                                                    src={getFullImageUrl(artwork.creator.profilePicture)}
                                                     alt={artwork.creator.name}
                                                     className="w-5 h-5 rounded-full mr-1 object-cover"
                                                 />

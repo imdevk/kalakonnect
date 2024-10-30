@@ -5,6 +5,7 @@ import Notifications from './Notifications';
 import debounce from 'lodash/debounce';
 import { FaBars, FaSearch, FaBell, FaUserCircle, FaPlus, FaSignOutAlt, FaInfoCircle } from 'react-icons/fa';
 import logo from '../assets/KalaKonnect.svg';
+import { getFullImageUrl } from '../utils/api';
 
 const Navigation = () => {
     const { isLoggedIn, logout, user, notificationCount } = useAuth();
@@ -18,7 +19,15 @@ const Navigation = () => {
     const location = useLocation();
     const menuRef = useRef(null);
     const searchRef = useRef(null);
+    const searchButtonRef = useRef(null);
+    const searchDropdownRef = useRef(null);
     const notificationsRef = useRef(null);
+
+    const closeAllDropdowns = useCallback(() => {
+        setIsMenuOpen(false);
+        setIsNotificationsOpen(false);
+        setIsSearchOpen(false);
+    }, []);
 
     const debouncedSearch = useCallback(
         debounce((term) => {
@@ -39,6 +48,9 @@ const Navigation = () => {
         if (typeof window !== 'undefined') {
             if (window.scrollY > lastScrollY) { // if scroll down hide the navbar
                 setIsVisible(false);
+                if (isMenuOpen || isNotificationsOpen || isSearchOpen) {
+                    closeAllDropdowns();
+                }
             } else { // if scroll up show the navbar
                 setIsVisible(true);
             }
@@ -46,18 +58,24 @@ const Navigation = () => {
             // remember current page location to use in the next move
             setLastScrollY(window.scrollY);
         }
-    }, [lastScrollY]);
+    }, [lastScrollY, isMenuOpen, isNotificationsOpen, isSearchOpen, closeAllDropdowns]);
+
+    const debouncedScrollHandler = useCallback(
+        debounce((e) => controlNavbar(e), 100),
+        [controlNavbar]
+    );
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            window.addEventListener('scroll', controlNavbar);
+            window.addEventListener('scroll', debouncedScrollHandler);
 
             // cleanup function
             return () => {
-                window.removeEventListener('scroll', controlNavbar);
+                window.removeEventListener('scroll', debouncedScrollHandler);
+                debouncedScrollHandler.cancel(); // Clean up debounce
             };
         }
-    }, [controlNavbar]);
+    }, [debouncedScrollHandler]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -68,13 +86,22 @@ const Navigation = () => {
             if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
                 setIsNotificationsOpen(false);
             }
+
+            // Handle search clicks - check if click is outside both the search button and dropdown
+            if (isSearchOpen &&
+                searchButtonRef.current &&
+                searchDropdownRef.current &&
+                !searchButtonRef.current.contains(event.target) &&
+                !searchDropdownRef.current.contains(event.target)) {
+                setIsSearchOpen(false);
+            }
         };
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, []);
+    }, [isSearchOpen]);
 
     useEffect(() => {
         // Clear search term when navigating to any page other than search
@@ -99,11 +126,11 @@ const Navigation = () => {
                         <Link to="/" className="mr-4">
                             <img
                                 src={logo}
-                                alt="ThriveinArt"
-                                className="h-8 w-auto"  // Adjusted height for SVG
+                                alt="Kala Konnect"
+                                className="h-20 w-auto"  // Adjusted height for SVG
                             />
                         </Link>
-                        <Link to="/" className="text-primary-off-white hover:bg-primary-dark hover:text-primary-lightest px-3 py-2 rounded-md text-md font-medium">
+                        <Link to="/" className="hidden sm:block text-primary-off-white hover:bg-primary-dark hover:text-primary-lightest px-3 py-2 rounded-md text-md font-medium">
                             Explore
                         </Link>
                     </div>
@@ -121,9 +148,10 @@ const Navigation = () => {
                         </div>
                     </div>
 
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-4 sm:space-x-4 max-[580px]:space-x-2">
                         {/* Mobile Search Icon - Visible only on mobile */}
                         <button
+                            ref={searchButtonRef}
                             className="md:hidden text-primary-off-white hover:bg-primary-dark hover:text-primary-lightest p-1 rounded-full"
                             onClick={() => setIsSearchOpen(!isSearchOpen)}
                         >
@@ -150,8 +178,21 @@ const Navigation = () => {
                                     <Notifications isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
                                 </div>
                                 {user && (
-                                    <Link to={`/profile/${user.username}`} className="text-primary-off-white hover:bg-primary-dark hover:text-primary-lightest p-1 rounded-full" title='Profile'>
-                                        <FaUserCircle className="h-5 w-5" />
+                                    <Link
+                                        to={`/profile/${user.username}`}
+                                        className="p-1 rounded-full hover:bg-primary-dark hover:text-primary-lightest transition-all flex items-center justify-center"
+                                        title='Profile'
+                                    >
+                                        <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0">
+                                            <img
+                                                src={getFullImageUrl(user.profilePicture)}
+                                                alt={user.name}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E";
+                                                }}
+                                            />
+                                        </div>
                                     </Link>
                                 )}
                                 <div className="relative" ref={menuRef}>
@@ -197,6 +238,7 @@ const Navigation = () => {
             </div>
             {/* Mobile Search Dropdown */}
             <div
+                ref={searchDropdownRef}
                 className={`md:hidden transition-all duration-300 ease-in-out ${isSearchOpen
                     ? 'max-h-[500px] opacity-100 border-t border-primary-medium'
                     : 'max-h-0 opacity-0 overflow-hidden'

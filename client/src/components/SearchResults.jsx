@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import api from '../utils/api';
 import LoadingSpinner from './common/LoadingSpinner';
+import { getFullImageUrl } from '../utils/api';
 
 const SearchResults = () => {
     const [results, setResults] = useState([]);
@@ -51,7 +52,7 @@ const SearchResults = () => {
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center min-h-[200px]">
+            <div className="flex justify-center my-8">
                 <LoadingSpinner />
             </div>
         );
@@ -80,9 +81,9 @@ const SearchResults = () => {
                                 >
                                     <div className="relative pb-[100%] overflow-hidden rounded-lg group">
                                         {artwork.thumbnailUrl ? (
-                                            <img src={artwork.thumbnailUrl} alt={artwork.title} className="absolute top-0 left-0 w-full h-full object-cover" />
+                                            <img src={getFullImageUrl(artwork.thumbnailUrl)} alt={artwork.title} className="absolute top-0 left-0 w-full h-full object-cover" />
                                         ) : artwork.imageUrls && artwork.imageUrls.length > 0 ? (
-                                            <img src={artwork.imageUrls[0]} alt={artwork.title} className="absolute top-0 left-0 w-full h-full object-cover" />
+                                            <img src={getFullImageUrl(artwork.imageUrls[0])} alt={artwork.title} className="absolute top-0 left-0 w-full h-full object-cover" />
                                         ) : (
                                             <div className="absolute top-0 left-0 w-full h-full bg-primary-darker flex items-center justify-center text-primary-light">No Image</div>
                                         )}
@@ -91,7 +92,7 @@ const SearchResults = () => {
                                             <div className="flex items-center">
                                                 {artwork.creator && artwork.creator.profilePicture && (
                                                     <img
-                                                        src={artwork.creator.profilePicture}
+                                                        src={getFullImageUrl(artwork.creator.profilePicture)}
                                                         alt={artwork.creator.name}
                                                         className="w-5 h-5 rounded-full mr-1 object-cover"
                                                     />

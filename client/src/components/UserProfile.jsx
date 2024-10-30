@@ -8,6 +8,7 @@ import SliderNavigation from './common/SliderNavigation';
 import LoadingSpinner from './common/LoadingSpinner';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import NotFound from './NotFound';
+import { getFullImageUrl } from '../utils/api';
 
 const UserProfile = () => {
     const [profileUser, setProfileUser] = useState(null);
@@ -351,12 +352,6 @@ const UserProfile = () => {
         }
     };
 
-    const handleProfilePictureClick = () => {
-        if (isOwnProfile && fileInputRef.current) {
-            fileInputRef.current.click();
-        }
-    };
-
     const handleFileChange = (e) => {
         handleImageSelect(e, 'profilePicture');
     };
@@ -365,12 +360,21 @@ const UserProfile = () => {
         try {
             setCropLoading(true);
             const formData = new FormData();
-            formData.append(imageType, croppedImage);
+
+            // Create a file from the cropped image blob
+            const fileName = imageType === 'profilePicture' ? 'profile.jpg' : 'cover.jpg';
+            const file = new File([croppedImage], fileName, { type: 'image/jpeg' });
+            formData.append(imageType, file);
 
             const response = await api.put('/api/users/profile-image', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 'Content-Type': 'multipart/form-data' },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    // You can add progress indicator here if needed
+                }
             });
 
+            // Update the profile user state with the new image path
             setProfileUser(prevUser => ({
                 ...prevUser,
                 [imageType]: response.data.user[imageType]
@@ -382,10 +386,16 @@ const UserProfile = () => {
                 setShowCoverCropper(false);
             }
 
-            // Update the user in AuthContext
-            updateUser(response.data.user);
+            // Update the user in AuthContext with the new image path
+            updateUser({
+                ...currentUser,
+                [imageType]: response.data.user[imageType]
+            });
         } catch (error) {
             setError('Failed to update image. Please try again.');
+            console.error('Image upload error:', error);
+        } finally {
+            setCropLoading(false);
         }
     };
 
@@ -405,10 +415,6 @@ const UserProfile = () => {
 
     if (!profileUser) return <div className="text-center my-8">User not found</div>;
 
-    const profilePicUrl = profileUser.profilePicture.startsWith('/')
-        ? `${import.meta.env.VITE_API_BASE_URL}${profileUser.profilePicture}`
-        : profileUser.profilePicture;
-
     const isOwnProfile = isLoggedIn && currentUser && currentUser.username === profileUser.username;
 
     const hasSocialLinks = profileUser?.socialLinks &&
@@ -423,62 +429,143 @@ const UserProfile = () => {
 
     return (
 
-        <div className="bg-primary-darkest min-h-screen px-4">
+        <div className="bg-primary-darkest min-h-screen px-4 pb-2">
             <div className="relative">
                 {/* Cover Image */}
                 <div className="flex justify-center">
-                    <div className="w-[1200px] h-[400px] relative">
-                        {profileUser.coverImage !== 'none' ? (
-                            <img src={profileUser.coverImage} alt="Cover" className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full bg-primary-dark"></div>
-                        )}
-                        {isOwnProfile && (
-                            <label htmlFor="coverImageUpload" className="absolute top-4 right-4 bg-primary-medium text-primary-off-white p-2 rounded-full cursor-pointer hover:bg-primary-dark transition duration-300">
-                                <FaPencilAlt />
-                                <input
-                                    id="coverImageUpload"
-                                    type="file"
-                                    className="hidden"
-                                    onChange={(e) => handleImageSelect(e, 'coverImage')}
-                                    accept="image/*"
-                                />
-                            </label>
-                        )}
+                    <div className="w-full max-w-[1200px] relative">
+                        <div className="relative w-full pb-[33.33%]">
+                            {profileUser.coverImage !== 'none' ? (
+                                <img src={getFullImageUrl(profileUser.coverImage)} alt="Cover" className="absolute top-0 left-0 w-full h-full object-cover" />
+                            ) : (
+                                <div className="absolute top-0 left-0 w-full h-full bg-primary-dark"></div>
+                            )}
+                            {isOwnProfile && (
+                                <label htmlFor="coverImageUpload" className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-primary-medium text-primary-off-white p-1.5 sm:p-2 rounded-full cursor-pointer hover:bg-primary-dark transition duration-300">
+                                    <FaPencilAlt className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    <input
+                                        id="coverImageUpload"
+                                        type="file"
+                                        className="hidden"
+                                        onChange={(e) => handleImageSelect(e, 'coverImage')}
+                                        accept="image/*"
+                                    />
+                                </label>
+                            )}
+                        </div>
                     </div>
                 </div>
 
                 {/* User Info Card */}
                 <div className="max-w-[1200px] mx-auto px-4">
-                    <div className="bg-primary-darker rounded-lg shadow-lg p-6 relative -mt-14">
-                        <div className="flex items-start">
-                            {/* Profile Picture */}
-                            <div className="relative mr-6">
-                                <img
-                                    src={profileUser.profilePicture}
-                                    alt="Profile"
-                                    className="w-32 h-32 rounded-full border-4 border-primary-medium object-cover cursor-pointer"
-                                    onClick={handleProfilePictureClick}
-                                />
-                                {isOwnProfile && (
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        className="hidden"
-                                        onChange={handleFileChange}
-                                        accept="image/*"
-                                    />
-                                )}
+                    <div className="bg-primary-darker rounded-lg shadow-lg p-6 sm:p-4 relative -mt-6 sm:-mt-10">
+                        <div className="flex flex-col md:flex-row md:items-start">
+                            {/* Mobile Profile Section */}
+                            <div className="w-full md:w-auto">
+                                {/* Profile Picture and Basic Info Container */}
+                                <div className="flex flex-col items-center md:block">
+                                    {/* Profile Info Wrapper */}
+                                    <div className="inline-flex items-center justify-center md:justify-start mb-6 md:mb-0">
+                                        {/* Profile Picture */}
+                                        <div className="relative md:mr-6 shrink-0">
+                                            <img
+                                                src={getFullImageUrl(profileUser.profilePicture)}
+                                                alt="Profile"
+                                                className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-primary-medium object-cover"
+                                            />
+                                            {isOwnProfile && (
+                                                <>
+                                                    <label
+                                                        htmlFor="profileImageUpload"
+                                                        className="absolute top-0 right-0 bg-primary-medium text-primary-off-white p-1.5 sm:p-2 rounded-full cursor-pointer hover:bg-primary-dark transition duration-300"
+                                                    >
+                                                        <FaPencilAlt className="w-3 h-3 sm:w-4 sm:h-4" />
+                                                        <input
+                                                            id="profileImageUpload"
+                                                            type="file"
+                                                            className="hidden"
+                                                            onChange={handleFileChange}
+                                                            accept="image/*"
+                                                            ref={fileInputRef}
+                                                        />
+                                                    </label>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {/* Mobile Name, Username, and Button */}
+                                        <div className="ml-4 md:hidden flex flex-col justify-center shrink">
+                                            <div>
+                                                <h1 className="text-xl font-bold text-primary-off-white whitespace-nowrap">{profileUser.name}</h1>
+                                                <p className="text-sm text-primary-light whitespace-nowrap">@{profileUser.username}</p>
+                                            </div>
+                                            <div className="mt-2">
+                                                {!isOwnProfile && isLoggedIn ? (
+                                                    <button
+                                                        onClick={isFollowing ? handleUnfollow : handleFollow}
+                                                        disabled={followLoading}
+                                                        className={`px-4 py-1.5 text-sm rounded-full ${isFollowing ? 'bg-primary-medium text-primary-off-white' : 'bg-primary-light text-primary-darkest'
+                                                            } hover:bg-primary-dark transition duration-300 flex items-center justify-center min-w-[80px]`}
+                                                    >
+                                                        {followLoading ? (
+                                                            <AiOutlineLoading3Quarters className="animate-spin" />
+                                                        ) : (
+                                                            isFollowing ? 'Following' : 'Follow'
+                                                        )}
+                                                    </button>
+                                                ) : isOwnProfile && (
+                                                    <Link to="/edit-profile" className="bg-primary-medium text-primary-off-white px-4 py-1.5 text-sm rounded-full hover:bg-primary-dark transition duration-300">
+                                                        Edit Profile
+                                                    </Link>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Mobile Centered Info */}
+                                    <div className="md:hidden flex flex-col items-center text-center w-full">
+                                        <p className="text-primary-light">{profileUser.title}</p>
+                                        {profileUser.link && (
+                                            <a
+                                                href={profileUser.link}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center text-blue-400 hover:text-blue-300 mt-2 transition duration-300"
+                                            >
+                                                <FaLink className="mr-2" />
+                                                {profileUser.link}
+                                            </a>
+                                        )}
+                                        <div className="flex flex-col items-center text-primary-light mt-4">
+                                            <div className="flex items-center space-x-6 mb-2">
+                                                <button onClick={toggleFollowers} className="hover:text-primary-off-white transition duration-300">
+                                                    <span className="font-bold">{totalFollowers}</span> Followers
+                                                </button>
+                                                <button onClick={toggleFollowing} className="hover:text-primary-off-white transition duration-300">
+                                                    <span className="font-bold">{totalFollowing}</span> Following
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center mb-2">
+                                                <FaEye className="mr-2" />
+                                                <span><span className="font-bold">{profileUser.totalViews}</span> Views</span>
+                                            </div>
+                                            {profileUser.cityState && (
+                                                <span className="text-primary-light font-semibold">
+                                                    {getStateFromCityState(profileUser.cityState)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* User Info */}
-                            <div className="flex-grow">
+                            {/* Desktop User Info */}
+                            <div className="flex-grow hidden md:block">
                                 <div className="flex justify-between items-baseline">
                                     <div>
                                         <h1 className="text-2xl font-bold text-primary-off-white">{profileUser.name}</h1>
                                         <p className="text-md text-primary-light">@{profileUser.username}</p>
                                     </div>
-                                    {/* Follow/Unfollow or Edit Profile Button */}
                                     <div>
                                         {!isOwnProfile && isLoggedIn ? (
                                             <button
@@ -500,6 +587,8 @@ const UserProfile = () => {
                                         )}
                                     </div>
                                 </div>
+
+                                {/* Desktop Info Section */}
                                 <p className="text-primary-light mt-2">{profileUser.title}</p>
                                 {profileUser.link && (
                                     <a
@@ -522,16 +611,15 @@ const UserProfile = () => {
                                         </button>
                                         <div className="flex items-center">
                                             <FaEye className="mr-2" />
-                                            <span>{profileUser.totalViews} Views</span>
+                                            <span><span className="font-bold">{profileUser.totalViews}</span> Views</span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center space-x-6">
+                                    <div className="flex items-center">
                                         {profileUser.cityState && (
                                             <span className="text-primary-light font-semibold">
                                                 {getStateFromCityState(profileUser.cityState)}
                                             </span>
                                         )}
-
                                     </div>
                                 </div>
                             </div>
@@ -562,7 +650,7 @@ const UserProfile = () => {
                                     </p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-4 gap-1">
+                                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-1">
                                     {artworks.map((artwork, index) => (
                                         <Link
                                             to={`/artwork/${artwork._id}`}
@@ -573,13 +661,13 @@ const UserProfile = () => {
                                             <div className="relative pb-[100%] overflow-hidden rounded-sm">
                                                 {artwork.thumbnailUrl ? (
                                                     <img
-                                                        src={artwork.thumbnailUrl}
+                                                        src={getFullImageUrl(artwork.thumbnailUrl)}
                                                         alt={artwork.title}
                                                         className="absolute top-0 left-0 w-full h-full object-cover"
                                                     />
                                                 ) : artwork.imageUrls && artwork.imageUrls.length > 0 ? (
                                                     <img
-                                                        src={artwork.imageUrls[0]}
+                                                        src={getFullImageUrl(artwork.imageUrls[0])}
                                                         alt={artwork.title}
                                                         className="absolute top-0 left-0 w-full h-full object-cover"
                                                     />
@@ -682,7 +770,7 @@ const UserProfile = () => {
                                                     onClick={toggleFollowers}
                                                     className="flex items-center hover:text-primary-off-white"
                                                 >
-                                                    <img src={follower.profilePicture} alt={follower.name} className="w-10 h-10 rounded-full mr-2" />
+                                                    <img src={getFullImageUrl(follower.profilePicture)} alt={follower.name} className="w-10 h-10 rounded-full mr-2" />
                                                     <span className="text-primary-light hover:text-primary-off-white">
                                                         {follower.name}
                                                     </span>
@@ -754,7 +842,7 @@ const UserProfile = () => {
                                                     onClick={toggleFollowing}
                                                     className="flex items-center hover:text-primary-off-white"
                                                 >
-                                                    <img src={followed.profilePicture} alt={followed.name} className="w-10 h-10 rounded-full mr-2" />
+                                                    <img src={getFullImageUrl(followed.profilePicture)} alt={followed.name} className="w-10 h-10 rounded-full mr-2" />
                                                     <span className="text-primary-light hover:text-primary-off-white">
                                                         {followed.name}
                                                     </span>

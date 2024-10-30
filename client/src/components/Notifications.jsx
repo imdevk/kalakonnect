@@ -76,7 +76,7 @@ const Notifications = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="absolute right-0 mt-2 w-80 bg-primary-darker rounded-md shadow-lg overflow-hidden z-20">
+        <div className="fixed sm:absolute sm:right-0 left-1/2 sm:left-auto transform -translate-x-1/2 sm:translate-x-0 mt-2 w-80 bg-primary-darker rounded-md shadow-lg overflow-hidden z-20">
             <div className="px-4 py-2 bg-primary-dark flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-primary-off-white">Notifications ({notificationCount})</h3>
                 <button onClick={markAsRead} className="text-sm text-primary-light hover:text-primary-lightest">

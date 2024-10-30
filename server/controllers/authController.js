@@ -142,13 +142,19 @@ exports.verifyEmail = async (req, res, next) => {
         }
 
         if (user.isVerified) {
-            return res.status(400).json({ message: 'User verified' });
+            return res.status(200).json({
+                message: 'Email verified successfully.',
+                status: 'success'
+            });
         }
 
         user.isVerified = true;
         await user.save();
 
-        res.json({ message: 'Email verified successfully. You can now post artworks.' });
+        res.status(200).json({
+            message: 'Email verified successfully. You can now post artworks.',
+            status: 'verified'
+        });
     } catch (error) {
         console.error('Error verifying email:', error);
         if (error instanceof jwt.JsonWebTokenError) {

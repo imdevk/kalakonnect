@@ -1,3 +1,4 @@
+require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
@@ -7,6 +8,25 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Create reusable transporter object using Hostinger SMTP
+const transporter = nodemailer.createTransport({
+    host: 'smtp.hostinger.com',
+    port: 587,
+    secure: false, 
+    auth: {
+        user: process.env.EMAIL_USERNAME,
+        pass: process.env.EMAIL_PASSWORD
+    },
+    tls: {
+        rejectUnauthorized: false
+    }
+});
+
+// Verify email configuration on startup
+transporter.verify()
+    .then(() => console.log('Email configuration is valid'))
+    .catch(err => console.error('Email configuration error:', err));
 
 const generateToken = (user) => {
     return jwt.sign(
@@ -104,30 +124,39 @@ exports.sendVerificationEmail = async (req, res, next) => {
 
         const verificationToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-        // Send verification email
-        const transporter = nodemailer.createTransport({
-            // Configure your email service here
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USERNAME,
-                pass: process.env.EMAIL_PASSWORD
-            }
-        });
-
         const mailOptions = {
-            from: process.env.EMAIL_USERNAME,
+            from: {
+                name: 'KalaKonnect',
+                address: process.env.EMAIL_USERNAME
+            },
             to: user.email,
-            subject: 'Verify Your Email',
-            text: `Please click on this link to verify your email: ${process.env.CLIENT_URL}/verify/${verificationToken}`
+            subject: 'Verify Your KalaKonnect Email',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2>Welcome to KalaKonnect!</h2>
+                    <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
+                    <a href="${process.env.CLIENT_URL}/verify/${verificationToken}" 
+                       style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; 
+                              color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+                        Verify Email
+                    </a>
+                    <p>If the button doesn't work, you can also click this link:</p>
+                    <p><a href="${process.env.CLIENT_URL}/verify/${verificationToken}">
+                        ${process.env.CLIENT_URL}/verify/${verificationToken}
+                    </a></p>
+                    <p>This link will expire in 1 hour.</p>
+                </div>
+            `
         };
 
         await transporter.sendMail(mailOptions);
-
         res.json({ message: 'Verification email sent. Please check your email.' });
     } catch (error) {
+        console.error('Email sending error:', error);
         next(error);
     }
 };
+
 
 exports.verifyEmail = async (req, res, next) => {
     try {
@@ -179,27 +208,35 @@ exports.forgotPassword = async (req, res, next) => {
 
         const resetURL = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USERNAME,
-                pass: process.env.EMAIL_PASSWORD
-            }
-        });
-
         const mailOptions = {
-            from: process.env.EMAIL_USERNAME,
+            from: {
+                name: 'KalaKonnect',
+                address: process.env.EMAIL_USERNAME
+            },
             to: user.email,
-            subject: 'Password Reset',
-            text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n
-                   Please click on the following link, or paste this into your browser to complete the process:\n\n
-                   ${resetURL}\n\n
-                   If you did not request this, please ignore this email and your password will remain unchanged.\n`
+            subject: 'Password Reset Request',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2>Password Reset Request</h2>
+                    <p>You are receiving this because you (or someone else) have requested to reset your password.</p>
+                    <p>Please click the button below to complete the process:</p>
+                    <a href="${resetURL}" 
+                       style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; 
+                              color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+                        Reset Password
+                    </a>
+                    <p>If the button doesn't work, you can also click this link:</p>
+                    <p><a href="${resetURL}">${resetURL}</a></p>
+                    <p>This link will expire in 1 hour.</p>
+                    <p>If you did not request this, please ignore this email and your password will remain unchanged.</p>
+                </div>
+            `
         };
 
         await transporter.sendMail(mailOptions);
         res.status(200).json({ message: 'Password reset email sent' });
     } catch (error) {
+        console.error('Password reset email error:', error);
         next(error);
     }
 };
